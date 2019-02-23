@@ -1,0 +1,32 @@
+int pin = 13; //Piezo Buzzer Connected
+volatile int state = LOW;
+
+void setup()
+{
+  pinMode(pin, OUTPUT);     // buzzer as output
+  digitalWrite(pin, state); //make buzzer OFF
+  //PIR Motion Sensor connected at digital pin 2 i.e. interrupt 0
+  attachInterrupt(0, makeSMS_Alarm, RISING);
+  Serial.begin(9600);  //set Baud Rate  
+}
+
+void loop()
+{   
+
+}
+
+void makeSMS_Alarm()
+{ 
+  // Piezo Buzzer ON
+  state = HIGH;
+  digitalWrite(pin, state);
+  
+  //Send SMS
+  Serial.print("AT+CMGF=1\r"); 
+  //Phone number you want to send the sms
+  Serial.print("AT+CMGS=\"+91xxxxxxxxxx"\r"); 
+  //Text to send                             
+  Serial.print("Intruder Alert - Someone At Home | www.maxphi.com\r");
+  //sends ctrl+z, end of message    
+  Serial.write(0x1A);                                                          
+}
