@@ -1,0 +1,111 @@
+#include "Adafruit_FONA.h"
+#include <SoftwareSerial.h>
+#define FONA_RX 7
+#define FONA_TX 8
+#define FONA_RST 4
+ 
+#include <SoftwareSerial.h>
+SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
+SoftwareSerial *fonaSerial = &fonaSS;
+String yourThing = "hbms";
+
+Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
+uint8_t readline(char *buff, uint8_t maxbuff, uint16_t timeout = 0);
+
+uint8_t type;
+int PulseSensorPurplePin = 0;        // Pulse Sensor PURPLE WIRE connected to ANALOG PIN 0
+
+float latitude, longitude;
+int BPM=0;
+int Signal;  
+
+char replybuffer[255];
+ char text[255];
+int ctr=0;
+char strMess[255]=""; 
+void setup() {
+ 
+  Serial.begin(115200);
+  Serial.println("Initializing FONA... (May take a few seconds)");
+ 
+  fonaSerial->begin(9600);
+  if (! fona.begin(*fonaSerial)) {
+    Serial.println("Couldn't find FONA");
+    while(1);
+  }
+  
+
+  //String textSMS = ("Person may experience a heart attack. Please locate and bring him/her to the nearest hospital. http://maps.google.com/maps?q=" + latitude + "," + longitude);
+  
+  
+  delay(4000);
+  
+  
+}
+ 
+void loop() {
+  boolean gsmloc_success = fona.getGSMLoc(&latitude, &longitude);
+
+   Signal = analogRead(PulseSensorPurplePin);  
+   BPM = ((1.0/Signal) * 60.0 * 1000)/2;      
+                                              
+
+   Serial.println(BPM);    
+  if (gsmloc_success) {
+
+    Serial.print("GSMLoc lat:");
+    Serial.println(latitude,10);
+    Serial.print("GSMLoc long:");
+    Serial.println(longitude,10);
+  }
+   else {
+    Serial.println("GSM location failed...");
+  }
+  if (!fona.enableGPRS(false))
+      Serial.println(F("Failed to turn off"));
+      delay(1000);
+  if (!fona.enableGPRS(true))
+      Serial.println(F("Failed to turn on"));   
+      delay(1000);
+
+   uint16_t statuscode;
+   int16_t length;
+   String url = "http://dweet.io/dweet/for/";
+          url += yourThing;
+          url += "?latitude=";
+          url += String(latitude,6);
+          url += "&longitude=";
+          url += String(longitude,6);
+          url += "&BPM=";
+          url += String(BPM,4);
+          char buf[80];
+          url.toCharArray(buf, url.length());
+
+          Serial.print("Request: ");
+          Serial.println(buf);  
+          if (!fona.HTTP_GET_start(buf, &statuscode, (uint16_t *)&length)) {
+              Serial.println("Failed!");
+          }
+          while (length > 0) {
+          while (fona.available()) {
+              char c = fona.read();
+              Serial.write(c);  
+              length--;
+            }
+          }
+              
+   if ((BPM<70) || (BPM>100)){
+    ctr++;    
+    if (ctr<4){     
+    delay(500);
+    String textSMS ="BPM: " + String(BPM) +  ". Person may experience a heart attack. Please locate and bring him/her to the nearest hospital. http://maps.google.com/maps?q=" + String(latitude,6) + "," + String(longitude,6);
+    strcpy(text, textSMS.c_str());    
+    fona.sendSMS("+639284115667",text);
+    delay(500);    
+  }  
+  delay(100);
+      
+}
+fona.HTTP_GET_end();
+delay(5000);
+}
